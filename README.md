@@ -37,3 +37,29 @@ Join our community and help improve Meshtastic! 🚀
 ## Stats
 
 ![Alt](https://repobeats.axiom.co/api/embed/8025e56c482ec63541593cc5bd322c19d5c0bdcf.svg "Repobeats analytics image")
+
+## WireGuard VPN (Experimental)
+
+This branch includes an experimental WireGuard VPN client for network-capable Meshtastic devices.
+
+**What changed:**
+
+- Adds a firmware-side WireGuard client powered by [`wireguard-esp32`](https://github.com/juvinski/wireguard-esp32).
+- Adds `ModuleConfig.wireguard` so clients can configure the tunnel at runtime instead of hardcoding keys and endpoint details into firmware.
+- Persists WireGuard settings in the normal module config flow and exposes transient tunnel status fields for client readback.
+- Starts the tunnel automatically when WireGuard is enabled, all required fields are configured, a WiFi or Ethernet connection is active, and NTP time is synced. The tunnel stops when the network disconnects.
+
+**How to enable in firmware:**
+
+- On ESP32-family variants, add `${wireguard_esp32.build_flags}` to the target variant's `build_flags`.
+- Add `${wireguard_esp32.lib_deps}` to the target variant's `lib_deps`.
+
+**Configuration:**
+
+- Production firmware should leave WireGuard defaults blank and disabled.
+- Configure server details and keys through a client that supports `ModuleConfig.wireguard`.
+- Until official Meshtastic clients support these fields, use the standalone configurator: [TheWISPRer/Meshtastic-Wireguard-Configurator](https://github.com/TheWISPRer/Meshtastic-Wireguard-Configurator).
+
+See [src/mesh/wireguard/WireGuard_ReadMe.md](src/mesh/wireguard/WireGuard_ReadMe.md) for implementation notes, config field mapping, and client integration guidance.
+
+> **Note:** This feature is experimental and full tunnel functionality may not be stable on all devices yet.

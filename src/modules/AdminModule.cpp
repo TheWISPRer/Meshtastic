@@ -28,6 +28,11 @@
 #include "TypeConversions.h"
 #include "mesh/RadioLibInterface.h"
 
+#if HAS_WIREGUARD_VPN
+#include "mesh/wireguard/WireGuardConfig.h"
+#include "mesh/wireguard/WireGuardVPN.h"
+#endif
+
 #if !MESHTASTIC_EXCLUDE_MQTT
 #include "mqtt/MQTT.h"
 #endif
@@ -1045,6 +1050,26 @@ bool AdminModule::handleSetModuleConfig(const meshtastic_ModuleConfig &c)
         moduleConfig.has_traffic_management = true;
         moduleConfig.traffic_management = c.payload_variant.traffic_management;
         break;
+    case meshtastic_ModuleConfig_wireguard_tag:
+        LOG_INFO("Set module config: WireGuard");
+        moduleConfig.has_wireguard = true;
+        {
+            auto wireguard = c.payload_variant.wireguard;
+            writeSecret(wireguard.private_key, sizeof(wireguard.private_key), moduleConfig.wireguard.private_key);
+            writeSecret(wireguard.preshared_key, sizeof(wireguard.preshared_key), moduleConfig.wireguard.preshared_key);
+            wireguard.status = meshtastic_ModuleConfig_WireGuardConfig_Status_STATUS_UNSPECIFIED;
+            wireguard.last_error[0] = '\0';
+            moduleConfig.wireguard = wireguard;
+        }
+#if HAS_WIREGUARD_VPN
+        applyWireGuardModuleConfig(moduleConfig.wireguard);
+        stopWireGuard();
+        if (moduleConfig.wireguard.enabled) {
+            startWireGuard();
+        }
+#endif
+        shouldReboot = false;
+        break;
     }
     saveChanges(SEGMENT_MODULECONFIG, shouldReboot);
     return true;
@@ -1235,6 +1260,14 @@ void AdminModule::handleGetModuleConfig(const meshtastic_MeshPacket &req, const 
             configName = "Traffic Management";
             res.get_module_config_response.which_payload_variant = meshtastic_ModuleConfig_traffic_management_tag;
             res.get_module_config_response.payload_variant.traffic_management = moduleConfig.traffic_management;
+            break;
+        case meshtastic_AdminMessage_ModuleConfigType_WIREGUARD_CONFIG:
+            configName = "WireGuard";
+            res.get_module_config_response.which_payload_variant = meshtastic_ModuleConfig_wireguard_tag;
+            res.get_module_config_response.payload_variant.wireguard = moduleConfig.wireguard;
+#if HAS_WIREGUARD_VPN
+            populateWireGuardStatus(res.get_module_config_response.payload_variant.wireguard);
+#endif
             break;
         }
         LOG_INFO("Get module config: %s", configName);

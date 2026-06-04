@@ -442,6 +442,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef USE_TFTDISPLAY
 #define USE_TFTDISPLAY 0
 #endif
+#ifndef HAS_WIREGUARD_VPN
+#define HAS_WIREGUARD_VPN 0
+#endif
 
 #ifndef HW_VENDOR
 #error HW_VENDOR must be defined

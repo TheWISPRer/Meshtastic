@@ -6,6 +6,9 @@
 #include "main.h"
 #include "mesh/api/ethServerAPI.h"
 #include "target_specific.h"
+#if HAS_WIREGUARD_VPN
+#include "mesh/wireguard/WireGuardVPN.h"
+#endif
 #ifdef USE_ARDUINO_ETHERNET
 #include <Ethernet.h> // arduino-libraries/Ethernet — supports W5100/W5200/W5500
 // Shorter DHCP timeout so LoRa startup isn't blocked when no DHCP server is present.
@@ -52,6 +55,9 @@ static int32_t reconnectETH()
         if (memcmp(currentMac, expectedMac, 6) != 0) {
             LOG_WARN("W5100S MAC mismatch (chip reset detected), reinitializing Ethernet");
 
+#if HAS_WIREGUARD_VPN
+            stopWireGuard();
+#endif
             syslog.disable();
 #if !MESHTASTIC_EXCLUDE_SOCKETAPI
             deInitApiServer();
@@ -170,7 +176,9 @@ static int32_t reconnectETH()
             tv.tv_usec = 0;
 
             perhapsSetRTC(RTCQualityNTP, &tv);
-
+#if HAS_WIREGUARD_VPN
+            startWireGuard();
+#endif
             ntp_renew = millis() + 43200 * 1000; // success, refresh every 12 hours
         } else {
             LOG_ERROR("NTP Update failed");

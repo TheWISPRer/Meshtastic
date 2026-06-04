@@ -36,6 +36,10 @@
 #include <power/PowerHAL.h>
 #include <vector>
 
+#if HAS_WIREGUARD_VPN
+#include "mesh/wireguard/WireGuardConfig.h"
+#endif
+
 #ifdef ARCH_ESP32
 #if HAS_WIFI
 #include "mesh/wifi/WiFiAPClient.h"
@@ -1074,6 +1078,10 @@ void NodeDB::installDefaultModuleConfig()
     moduleConfig.has_store_forward = true;
     moduleConfig.has_telemetry = true;
     moduleConfig.has_external_notification = true;
+#if HAS_WIREGUARD_VPN
+    moduleConfig.has_wireguard = true;
+    applyWireGuardModuleConfig(moduleConfig.wireguard);
+#endif
 #if defined(PIN_BUZZER) || defined(PIN_VIBRATION) || defined(LED_NOTIFICATION) || defined(PCA_LED_NOTIFICATION) ||               \
     defined(NEOPIXEL_STATUS_NOTIFICATION_PIN)
     moduleConfig.external_notification.enabled = true;
@@ -1856,6 +1864,9 @@ void NodeDB::loadFromDisk()
             LOG_INFO("Loaded saved moduleConfig version %d", moduleConfig.version);
         }
     }
+#if HAS_WIREGUARD_VPN
+    applyWireGuardModuleConfig(moduleConfig.wireguard);
+#endif
 
     state = loadProto(channelFileName, meshtastic_ChannelFile_size, sizeof(meshtastic_ChannelFile), &meshtastic_ChannelFile_msg,
                       &channelFile);
@@ -2125,6 +2136,9 @@ bool NodeDB::saveToDiskNoRetry(int saveWhat)
         moduleConfig.has_audio = true;
         moduleConfig.has_paxcounter = true;
         moduleConfig.has_statusmessage = true;
+#if HAS_WIREGUARD_VPN
+        moduleConfig.has_wireguard = true;
+#endif
 
         success &=
             saveProto(moduleConfigFileName, meshtastic_LocalModuleConfig_size, &meshtastic_LocalModuleConfig_msg, &moduleConfig);
@@ -2853,6 +2867,9 @@ bool NodeDB::restorePreferences(meshtastic_AdminMessage_BackupLocation location,
             }
             if (restoreWhat & SEGMENT_MODULECONFIG) {
                 moduleConfig = backup.module_config;
+#if HAS_WIREGUARD_VPN
+                applyWireGuardModuleConfig(moduleConfig.wireguard);
+#endif
                 LOG_DEBUG("Restored module config");
             }
             if (restoreWhat & SEGMENT_DEVICESTATE) {

@@ -8,6 +8,9 @@
 #include "main.h"
 #include "mesh/api/WiFiServerAPI.h"
 #include "target_specific.h"
+#if HAS_WIREGUARD_VPN
+#include "mesh/wireguard/WireGuardVPN.h"
+#endif
 #include <WiFi.h>
 
 #if HAS_ETHERNET && defined(ARCH_ESP32)
@@ -209,6 +212,9 @@ static void onNetworkConnected()
             initApiServer();
         }
 #endif
+#if HAS_WIREGUARD_VPN
+        startWireGuard();
+#endif
         APStartupComplete = true;
     }
 
@@ -277,6 +283,9 @@ static int32_t reconnectWiFi()
             tv.tv_usec = 0;
 
             perhapsSetRTC(RTCQualityNTP, &tv);
+#if HAS_WIREGUARD_VPN
+            startWireGuard();
+#endif
             lastrun_ntp = millis();
         } else {
             LOG_DEBUG("NTP Update failed");
@@ -470,6 +479,9 @@ static void WiFiEvent(WiFiEvent_t event)
         }
 #endif
         if (!isReconnecting) {
+#if HAS_WIREGUARD_VPN
+            stopWireGuard();
+#endif
             WiFi.disconnect(false, true);
             syslog.disable();
             needReconnect = true;
@@ -494,6 +506,9 @@ static void WiFiEvent(WiFiEvent_t event)
         break;
     case ARDUINO_EVENT_WIFI_STA_LOST_IP:
         LOG_INFO("Lost IP address and IP address is reset to 0");
+#if HAS_WIREGUARD_VPN
+        stopWireGuard();
+#endif
 #if HAS_UDP_MULTICAST
         if (udpHandler) {
             udpHandler->stop();
@@ -564,12 +579,18 @@ static void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_ETH_DISCONNECTED:
         syslog.disable();
         LOG_INFO("Ethernet disconnected");
+#if HAS_WIREGUARD_VPN
+        stopWireGuard();
+#endif
         break;
     case ARDUINO_EVENT_ETH_GOT_IP:
 #if defined(USE_WS5500) || defined(USE_CH390D)
         LOG_INFO("Obtained IP address: %s, %u Mbps, %s", ETH.localIP().toString().c_str(), ETH.linkSpeed(),
                  ETH.fullDuplex() ? "FULL_DUPLEX" : "HALF_DUPLEX");
         ethNetworkConnectedPending = true;
+#if HAS_WIREGUARD_VPN
+        startWireGuard();
+#endif
 #endif
         break;
     case ARDUINO_EVENT_ETH_GOT_IP6:
