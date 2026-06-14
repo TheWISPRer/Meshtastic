@@ -84,6 +84,10 @@ bool startWireGuard()
         return false;
     }
 
+    if (wireGuardConfig.presharedKey[0] != '\0') {
+        LOG_WARN("WireGuard preshared key is set but WireGuard-ESP32 does not support it; tunnel will run without it");
+    }
+
     String serverIpStr = serverIp.toString();
     if (!vpn.begin(localIp,                       // local (client) IP/subnet
                    wireGuardConfig.privateKey,    // base64 private key
