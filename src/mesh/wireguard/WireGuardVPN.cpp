@@ -118,6 +118,17 @@ bool startWireGuard()
         return false;
     }
 
+    // droscy seeds the peer with only the device's own address (/32) as an allowed
+    // IP, so the node would never originate a handshake and any return traffic to a
+    // peer is dropped (server shows the tunnel but 0 RX/TX and the node is
+    // unreachable). Allow all IPs through the tunnel -- full-tunnel, matching the
+    // previous ciniml behaviour -- so the node establishes the session and is
+    // reachable over the VPN. (A future enhancement could expose AllowedIPs in the
+    // module config for split-tunnel setups.)
+    if (esp_wireguard_add_allowed_ip(&wgCtx, "0.0.0.0", "0.0.0.0") != ESP_OK) {
+        LOG_WARN("WireGuard: failed to add default allowed IPs (0.0.0.0/0)");
+    }
+
     // Route outbound traffic through the tunnel, matching the previous behaviour.
     esp_wireguard_set_default(&wgCtx);
 
