@@ -21,6 +21,35 @@
 	<a href="https://meshtastic.org/docs/">Documentation</a>
 </div>
 
+---
+
+> ## 🔐 This is a WireGuard-enabled fork of Meshtastic
+>
+> This fork adds **experimental WireGuard VPN support** to the Meshtastic firmware — an optional, streamlined module that lets an IP-capable node (ESP32 Wi‑Fi/Ethernet) bring up an encrypted WireGuard tunnel automatically once networking and NTP time are available.
+>
+> **Highlights**
+>
+> - Optional, opt-in module gated behind the `HAS_WIREGUARD_VPN` compile-time flag (disabled by default — production defaults stay blank).
+> - Single-peer tunnel configured via `ModuleConfig.wireguard` over the admin API (address, server endpoint, keys, optional preshared key).
+> - Tunnel is started/stopped automatically by the Wi‑Fi and Ethernet client code when the link and clock are ready.
+> - Standard WireGuard `.conf` files map cleanly onto the device config.
+>
+> **Status & roadmap**
+> The implementation has been streamlined with the goal of getting WireGuard into mainline Meshtastic. The current proposal is a recognized **"community support" track** (unofficial, clearly-labeled builds distributed via the Web Flasher) while the integration is rebased onto the actively-maintained `droscy/esp_wireguard` library. Full context and discussion:
+>
+> - 💬 [WireGuard: status, a viable library path, and a "community support" proposal](https://github.com/meshtastic/firmware/discussions/10716)
+>
+> **Where to look**
+>
+> - 📦 This fork: [TheWISPRer/Meshtastic (`master`)](https://github.com/TheWISPRer/Meshtastic/tree/master)
+> - 📖 Developer guide: [`src/mesh/wireguard/WireGuard_ReadMe.md`](src/mesh/wireguard/WireGuard_ReadMe.md)
+> - 🧩 Implementation: [`src/mesh/wireguard/`](src/mesh/wireguard/)
+> - 🖥️ Standalone configurator (until native clients expose the fields): [Meshtastic-Wireguard-Configurator](https://github.com/TheWISPRer/Meshtastic-Wireguard-Configurator)
+>
+> Active development happens on the **`Wireguard`** (tracks upstream `master`) and **`codex/wireguard-develop`** (tracks upstream `develop`) branches. Everything below is the upstream Meshtastic README, unchanged.
+
+---
+
 ## Overview
 
 This repository contains the official device firmware for Meshtastic, an open-source LoRa mesh networking project designed for long-range, low-power communication without relying on internet or cellular infrastructure. The firmware supports various hardware platforms, including ESP32, nRF52, RP2040/RP2350, and Linux-based devices.
