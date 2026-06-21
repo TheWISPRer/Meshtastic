@@ -42,8 +42,8 @@
 > **Where to look**
 >
 > - 📦 This fork: [TheWISPRer/Meshtastic (`master`)](https://github.com/TheWISPRer/Meshtastic/tree/master)
-> - 📖 Developer guide: [`src/mesh/wireguard/WireGuard_ReadMe.md`](src/mesh/wireguard/WireGuard_ReadMe.md)
-> - 🧩 Implementation: [`src/mesh/wireguard/`](src/mesh/wireguard/)
+> - 📖 Developer guide: [`src/mesh/wireguard/WireGuard_ReadMe.md`](https://github.com/TheWISPRer/Meshtastic/blob/codex/wireguard-develop/src/mesh/wireguard/WireGuard_ReadMe.md)
+> - 🧩 Implementation: [`src/mesh/wireguard/`](https://github.com/TheWISPRer/Meshtastic/tree/codex/wireguard-develop/src/mesh/wireguard)
 > - 🖥️ Standalone configurator (until native clients expose the fields): [Meshtastic-Wireguard-Configurator](https://github.com/TheWISPRer/Meshtastic-Wireguard-Configurator)
 >
 > Active development happens on the **`Wireguard`** (tracks upstream `master`) and **`codex/wireguard-develop`** (tracks upstream `develop`) branches. Everything below is the upstream Meshtastic README, unchanged.
