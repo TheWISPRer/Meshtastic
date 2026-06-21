@@ -6,7 +6,7 @@
 #include "gps/RTC.h"
 #include <cstring>
 #include <WiFi.h>
-#include <WireGuard-ESP32.h>
+#include "esp_wireguard.h"
 #if HAS_WIFI
 #include "mesh/wifi/WiFiAPClient.h"
 #endif
@@ -15,7 +15,13 @@
 #endif
 
 static bool running = false;
-static WireGuard vpn;
+static wireguard_ctx_t wgCtx = ESP_WIREGUARD_CONTEXT_DEFAULT();
+static wireguard_config_t wgConf = ESP_WIREGUARD_CONFIG_DEFAULT();
+// droscy/esp_wireguard stores the const char* pointers from wgConf for the life
+// of the tunnel, so every string it references must outlive startWireGuard().
+// The key/address fields point at the static wireGuardConfig global; the resolved
+// endpoint IP needs its own static buffer.
+static char endpointIp[40];
 
 bool startWireGuard()
 {
@@ -84,24 +90,40 @@ bool startWireGuard()
         return false;
     }
 
-    if (wireGuardConfig.presharedKey[0] != '\0') {
-        LOG_WARN("WireGuard preshared key is set but WireGuard-ESP32 does not support it; tunnel will run without it");
+    String serverIpStr = serverIp.toString();
+    strlcpy(endpointIp, serverIpStr.c_str(), sizeof(endpointIp));
+
+    // Map the saved tunnel settings onto droscy/esp_wireguard's config. Unlike the
+    // old ciniml wrapper, the preshared key is honoured here when present.
+    wgConf = ESP_WIREGUARD_CONFIG_DEFAULT();
+    wgConf.private_key = wireGuardConfig.privateKey;
+    wgConf.public_key = wireGuardConfig.publicKey;
+    wgConf.preshared_key = (wireGuardConfig.presharedKey[0] != '\0') ? wireGuardConfig.presharedKey : nullptr;
+    wgConf.address = wireGuardConfig.address;
+    wgConf.netmask = "255.255.255.255";
+    wgConf.endpoint = endpointIp;
+    wgConf.port = wireGuardConfig.serverPort;
+    wgConf.persistent_keepalive = 25;
+
+    wgCtx = ESP_WIREGUARD_CONTEXT_DEFAULT();
+    if (esp_wireguard_init(&wgConf, &wgCtx) != ESP_OK) {
+        LOG_ERROR("WireGuard init failed");
+        setWireGuardStatus(meshtastic_ModuleConfig_WireGuardConfig_Status_FAILED, "init failed");
+        return false;
     }
 
-    String serverIpStr = serverIp.toString();
-    if (!vpn.begin(localIp,                       // local (client) IP/subnet
-                   wireGuardConfig.privateKey,    // base64 private key
-                   serverIpStr.c_str(),           // server IP address
-                   wireGuardConfig.publicKey,     // server public key
-                   wireGuardConfig.serverPort)) {
+    if (esp_wireguard_connect(&wgCtx) != ESP_OK) {
         LOG_ERROR("Unable to start WireGuard tunnel");
         setWireGuardStatus(meshtastic_ModuleConfig_WireGuardConfig_Status_FAILED, "tunnel start failed");
         return false;
     }
 
+    // Route outbound traffic through the tunnel, matching the previous behaviour.
+    esp_wireguard_set_default(&wgCtx);
+
     LOG_INFO("WireGuard tunnel started to %s (%s):%u",
              wireGuardConfig.serverAddr,
-             serverIpStr.c_str(),
+             endpointIp,
              wireGuardConfig.serverPort);
 
     running = true;
@@ -114,7 +136,7 @@ void stopWireGuard()
     if (!running) {
         return;
     }
-    vpn.end();
+    esp_wireguard_disconnect(&wgCtx);
     LOG_INFO("WireGuard VPN stopped");
     running = false;
     if (wireGuardConfig.enabled) {

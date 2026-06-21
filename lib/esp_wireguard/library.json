@@ -1,0 +1,16 @@
+{
+  "name": "esp_wireguard",
+  "version": "0.4.5+meshtastic.1",
+  "description": "Vendored droscy/esp_wireguard (WireGuard for ESP32). Local patch: X25519 routed through meshtastic/Crypto's Curve25519 instead of libsodium, so no esphome/libsodium ESP-IDF component is pulled and the Arduino-framework build works. See src/crypto.h and src/x25519_curve25519.cpp.",
+  "keywords": ["wireguard", "vpn", "network"],
+  "license": "BSD-3-Clause",
+  "frameworks": ["arduino"],
+  "platforms": ["espressif32"],
+  "dependencies": [{ "name": "Crypto" }],
+  "headers": ["esp_wireguard.h"],
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src",
+    "flags": ["-Wno-unused-result"]
+  }
+}
