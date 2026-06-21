@@ -19,7 +19,7 @@ typedef struct WireGuardConfig {
     uint16_t serverPort;    ///< WireGuard server port
     char privateKey[64];    ///< Client private key
     char publicKey[64];     ///< Server public key
-    char presharedKey[64];  ///< Optional preshared key, not available in Wireguard-ESP32 as of now
+    char presharedKey[64];  ///< Optional preshared key (supported)
 } WireGuardConfig;
 
 #ifndef WIREGUARD_DEFAULT_ENABLED
@@ -47,10 +47,8 @@ typedef struct WireGuardConfig {
 #endif
 
 #ifndef WIREGUARD_DEFAULT_PRESHARED_KEY
-// WireGuard-ESP32 does not currently make use of preshared keys but the
-// structure contains a field for future compatibility. Define a default
-// empty value so that the configuration compiles when the feature is
-// enabled.
+// Optional preshared key, applied to the peer when set. Leave empty to run
+// without a PSK.
 #define WIREGUARD_DEFAULT_PRESHARED_KEY ""
 #endif
 

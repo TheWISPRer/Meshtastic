@@ -12,10 +12,12 @@ Until official Meshtastic clients expose `ModuleConfig.wireguard`, a standalone 
 
 WireGuard functionality is optional and controlled by the `HAS_WIREGUARD_VPN` compile-time flag. By default this flag is disabled in `src/configuration.h`.
 
-For ESP32-family variants, use the shared `wireguard_esp32` PlatformIO section so the WireGuard library, feature flag, and Arduino 3.x compatibility include path stay together:
+For ESP32-family variants, use the shared `wireguard_esp32` PlatformIO section so the feature flag and WireGuard build options stay together:
 
 1. Add `${wireguard_esp32.build_flags}` to the variant's `build_flags`.
 2. Add `${wireguard_esp32.lib_deps}` to the variant's `lib_deps`.
+
+The WireGuard implementation itself is the in-tree vendored library at `lib/esp_wireguard/` (see [Implementation](#implementation)); it is discovered automatically via the `#include` in `WireGuardVPN.cpp`, so `${wireguard_esp32.lib_deps}` is currently empty and the section mainly carries the `-DHAS_WIREGUARD_VPN=1` and `-DCONFIG_WIREGUARD_MAX_SRC_IPS` build flags.
 
 Example `seeed_xiao_s3` configuration:
 
@@ -82,7 +84,7 @@ Client-side importers should map:
 - `Peer.PresharedKey` -> `preshared_key`
 - `Peer.Endpoint` -> `server_addr` and `server_port`
 
-Importers should strip the subnet mask from `Address`, split `Endpoint` into server host and port, reject multi-peer configs, and ignore unsupported options such as `AllowedIPs`, `DNS`, and `PersistentKeepalive`.
+Importers should strip the subnet mask from `Address`, split `Endpoint` into server host and port, and reject multi-peer configs. The preshared key **is** honoured. `DNS` is ignored. `AllowedIPs` and `PersistentKeepalive` are not read from the config — the firmware always runs the tunnel as a **full tunnel** (`AllowedIPs = 0.0.0.0/0`) with a 25-second keepalive, matching the behaviour earlier firmware relied on. (Exposing `AllowedIPs` for split-tunnel setups is a possible future enhancement.)
 
 The private and preshared key sentinel value `sekrit` preserves an existing saved key when updating other WireGuard fields through the admin handler. Clients should redact private and preshared keys from normal readback displays.
 
@@ -109,5 +111,17 @@ The WiFi and Ethernet client code automatically manages the VPN. When a network 
 ## Interacting from Other Modules
 
 Other modules may start or stop the VPN by calling the API functions above. They can also examine or modify `wireGuardConfig` before starting the tunnel. For remote configuration, use the admin protobuf message `AdminMessage_ModuleConfigType_WIREGUARD_CONFIG`.
+
+## Implementation
+
+The tunnel is provided by a vendored copy of [`droscy/esp_wireguard`](https://github.com/droscy/esp_wireguard) (the maintained ESPHome WireGuard stack) at `lib/esp_wireguard/`. `WireGuardVPN.cpp` drives it through `esp_wireguard_init` → `esp_wireguard_connect` → `esp_wireguard_add_allowed_ip` → `esp_wireguard_set_default`.
+
+Upstream targets ESPHome, so the vendored copy carries three small, clearly-commented local patches. When updating to a newer droscy release, drop in their `src/` and re-apply these:
+
+1. **X25519 backend** (`src/crypto.h`, `src/x25519_curve25519.cpp`) — upstream uses libsodium for X25519, which drags in the `esphome/libsodium` ESP-IDF component and breaks the Arduino-framework build. We route X25519 through the rweather `Curve25519` already shipped by `meshtastic/Crypto` (the same primitive `CryptoEngine` uses), so no libsodium is pulled. droscy clamps its own keys, so the raw `Curve25519::eval` is correct.
+2. **`netif->state` collision** (`src/esp_wireguard.c`, `esp_wireguard_netif_create`) — ESP-IDF maps a `netif` back to its `esp_netif` via `netif->state`, the same slot `wireguardif` uses for its device. lwIP `netif_add` fires esp_netif's ext-callback before our init runs, so the callback dereferences our data as an `esp_netif` and panics (boot loop). The patch adds the netif with `state=NULL` and restores it via a thin init adapter.
+3. **Allowed-IPs / max source IPs** — droscy seeds the peer with only the device's own `/32` and caps `WIREGUARD_MAX_SRC_IPS` at 1. We add `0.0.0.0/0` after connect (full tunnel) and raise the cap via `-DCONFIG_WIREGUARD_MAX_SRC_IPS` in `platformio.ini` so the add succeeds. Without this the handshake completes but **no data flows** (cryptokey routing drops everything).
+
+Preshared keys are fully supported; `set_default()` is safe because `wireguardif` pins its transport UDP to the physical interface, so the encrypted packets do not loop back through the tunnel.
 
 Because this feature is experimental the implementation may evolve, but these entry points are expected to remain stable.
