@@ -135,6 +135,24 @@ fail:
     return err;
 }
 
+// Meshtastic local patch (not in upstream droscy). ESP-IDF maps a struct netif*
+// back to its esp_netif_t* through netif->state (see lwip_get_esp_netif() in
+// esp_netif_lwip.c when LWIP_ESP_NETIF_DATA is disabled, which is the case in the
+// Arduino-ESP32 lwIP build). lwIP's netif_add() sets netif->state and then calls
+// netif_set_addr() -- firing esp_netif's global ext-callback
+// (esp_netif_internal_dhcpc_cb) -- BEFORE it invokes our init function. If the
+// wireguardif init-data is sitting in netif->state at that moment, esp_netif casts
+// it to esp_netif_t* and dereferences garbage -> LoadProhibited panic / boot loop.
+// So we add the netif with state=NULL (the ext-callback then bails on its NULL
+// guard) and hand the init-data to wireguardif_init() via this adapter, which
+// restores netif->state just before the real init runs.
+static struct wireguardif_init_data *meshtastic_wg_init_data;
+static err_t meshtastic_wg_netif_init(struct netif *netif)
+{
+    netif->state = meshtastic_wg_init_data;
+    return wireguardif_init(netif);
+}
+
 static esp_err_t esp_wireguard_netif_create(const wireguard_config_t *config)
 {
     esp_err_t err;
@@ -164,14 +182,19 @@ static esp_err_t esp_wireguard_netif_create(const wireguard_config_t *config)
         goto fail;
     }
 
-    /* Register the new WireGuard network interface with lwIP */
+    /* Register the new WireGuard network interface with lwIP.
+     * Meshtastic local patch: add with state=NULL and route the init-data through
+     * meshtastic_wg_netif_init (see above) so esp_netif's add-time ext-callback
+     * does not treat our init-data as an esp_netif_t and crash. */
+    meshtastic_wg_init_data = &wg;
     wg_netif = netif_add(
             &wg_netif_struct,
             ip_2_ip4(&ip_addr),
             ip_2_ip4(&netmask),
             ip_2_ip4(&gateway),
-            &wg, &wireguardif_init,
+            NULL, &meshtastic_wg_netif_init,
             &ip_input);
+    meshtastic_wg_init_data = NULL;
     if (wg_netif == NULL) {
         ESP_LOGE(TAG, "netif_add: failed");
         err = ESP_FAIL;
